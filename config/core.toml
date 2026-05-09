@@ -1,0 +1,47 @@
+# ===================================================================
+# ai_ad_simulation — Public Core Constants
+# ===================================================================
+# Generic, algorithm-agnostic parameters safe for open-source publication.
+# Deployment-specific overlays should be supplied outside the public core.
+
+
+# -------------------------------------------------------------------
+# Statistical Power
+# -------------------------------------------------------------------
+[power]
+default_alpha = 0.05
+target_power = 0.80
+max_pairs_guard = 10000
+default_min_pairs = 100
+default_recommended_pairs = 200
+default_min_seeds = 5
+default_recommended_seeds = 10
+
+
+# -------------------------------------------------------------------
+# Pipeline Defaults
+# -------------------------------------------------------------------
+[pipeline]
+default_video_duration_sec = 30.0  # ffprobe failure fallback
+# EasyOCR confidence threshold. Detections below this score are dropped
+# before they enter the schema. EasyOCR routinely emits very low-confidence
+# garbage on dynamic frames (e.g. confidence < 0.001 for "Olecaoe", "Knen nen"
+# observed in pixel_ad). 0.30 is the documented practical floor; raise toward
+# 0.5 if downstream noise persists, lower toward 0.1 only when dropping real
+# overlay text. Real CTA / brand text typically scores >= 0.85.
+ocr_min_confidence = 0.30
+# Whisper ASR confidence threshold. Segments whose ``avg_logprob``-derived
+# confidence falls below this score are dropped before they enter the schema.
+# Whisper transcribes ambient sound / music as garbage strings (e.g. ad_demo_water
+# produced "1.5%" × 7 segments at confidence 0.20 from water sounds). Real
+# narration typically scores >= 0.7. The floor here matches the OCR threshold
+# for symmetry; raise toward 0.5 if music-heavy ads still leak garbage,
+# lower toward 0.1 only when dropping real low-volume narration.
+asr_min_confidence = 0.30
+
+
+# -------------------------------------------------------------------
+# YouTube-8M Vocabulary
+# -------------------------------------------------------------------
+[yt8m]
+vocabulary_csv = "vocab/youtube8m/vocabulary.csv"
