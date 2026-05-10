@@ -1,8 +1,12 @@
 # AI Video Ad Simulation: Synthetic Pretest System
 
+![AI Video Ad Simulation concept](overall_concept.png)
+
 A synthetic pretest platform that simulates video ad delivery to AI agents (synthetic viewers) using Chain of Thought (CoT) reasoning to model how target audiences process and respond to ad exposure — enabling advertisers to estimate brand lift metrics before real-world deployment.
 
 **License:** [BSL 1.1](LICENSE.md) (converts to Apache 2.0 after 5 years)
+
+**Demo:** [Finance ad simulation output example](DEMO.md)
 
 ---
 
