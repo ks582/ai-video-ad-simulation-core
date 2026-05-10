@@ -46,21 +46,22 @@ The WebUI reports a positive overall verdict:
 ![Primary metrics in the WebUI](demo/ad_demo_finance_webui_primary_metrics.png)
 
 The primary metric table compares treatment agents who received the ad
-stimulus against matched control agents. The absolute lift is the
-treatment-control difference in percentage points.
+stimulus against matched control agents. The table below mirrors the PDF
+report columns, including relative lift, headroom lift, p-values, and
+significance markers.
 
-| Metric | Funnel | Treatment | Control | Abs. Lift | 95% CI | Result |
-| --- | --- | ---: | ---: | ---: | --- | --- |
-| Brand Awareness Lift | Upper | 21.10% | 19.52% | +1.58pp | [+1.24pp, +1.92pp] | Significant |
-| Ad Recall Lift | Upper | 21.52% | 11.83% | +9.65pp | [+8.94pp, +10.35pp] | Significant |
-| Message Association Lift | Mid | 14.58% | 10.20% | +4.37pp | [+3.83pp, +4.92pp] | Significant |
-| Favorability Lift | Mid | 15.31% | 10.80% | +4.51pp | [+3.73pp, +5.29pp] | Significant |
-| Purchase Intent Lift | Lower | 10.60% | 9.11% | +1.49pp | [+1.13pp, +1.84pp] | Significant |
-| Search Intent Lift | Lower | 8.69% | 4.80% | +3.89pp | [+3.37pp, +4.40pp] | Significant |
-| Consideration Lift | Lower | 20.03% | 18.38% | +1.64pp | [+1.29pp, +1.99pp] | Significant |
+| Metric | Funnel | Treatment | Control | Abs. Lift | Rel. Lift | Headroom Lift | 95% CI | p | Sig. |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | --- |
+| brand_awareness_lift | Upper | 19.50% | 18.49% | +1.02% | +5.5% | +1.25% | [+0.75%, +1.28%] | 0.0000 | *** |
+| ad_recall_lift | Upper | 15.54% | 6.42% | +9.08% | +141.4% | +9.74% | [+8.34%, +9.82%] | 0.0000 | *** |
+| message_association_lift | Mid | 10.62% | 6.29% | +4.33% | +68.8% | +4.62% | [+3.78%, +4.88%] | 0.0000 | *** |
+| favorability_lift | Mid | 14.53% | 10.79% | +3.74% | +34.7% | +4.19% | [+3.05%, +4.43%] | 0.0000 | *** |
+| purchase_intent_lift | Lower | 8.23% | 6.91% | +1.32% | +19.1% | +1.42% | [+0.98%, +1.66%] | 0.0000 | *** |
+| search_intent_lift | Lower | 8.79% | 5.10% | +3.70% | +72.6% | +3.90% | [+3.14%, +4.26%] | 0.0000 | *** |
+| consideration_lift | Lower | 18.57% | 17.24% | +1.32% | +7.7% | +1.61% | [+1.01%, +1.63%] | 0.0000 | *** |
 
 In this sample, the strongest lift is in ad recall, followed by
-favorability, message association, and search intent. Lower-funnel metrics
+message association, search intent, and favorability. Lower-funnel metrics
 also move positively, but with smaller absolute lift.
 
 ## Segment And Affinity Views
@@ -78,17 +79,6 @@ The WebUI partitions the synthetic population into six persona segments:
 | brand_aware_finance | 90 |
 | brand_unaware_business_industrial | 150 |
 | brand_unaware_finance | 150 |
-
-The affinity breakdown shows that Finance Enthusiast personas have higher
-ad relevance than Business Professional personas in this run:
-
-| Affinity | Pairs | Ad relevance | Ad Recall Lift | Favorability Lift | Search Intent Lift |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Business Professional | 300 | 32% | +9.04pp | +4.05pp | +3.52pp |
-| Finance Enthusiast | 300 | 76% | +10.33pp | +4.97pp | +4.26pp |
-
-This view helps explain whether the same creative is broadly effective or
-concentrated in a more relevant audience slice.
 
 ## Video Analysis Output
 
