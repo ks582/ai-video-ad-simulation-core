@@ -12,6 +12,8 @@ A synthetic pretest platform that simulates video ad delivery to AI agents (synt
 
 ## Overview
 
+![AI Video Ad Simulation demo](demo/ai_ad_simulation_demo.gif)
+
 Instead of buying media inventory and measuring real audiences after the fact, this system delivers video ads to **AI agents acting as synthetic viewers** — and measures the effect computationally, before any real budget is spent.
 
 Each AI agent is initialized with a structured persona (demographics, brand priors, behavioral propensities) sampled from public population statistics. The agent then processes the ad through a multimodal LLM and its internal state is updated to reflect exposure. Comparing agents who saw the ad (Treatment) against statistically identical agents who did not (Control) yields a causal estimate of ad effectiveness.
