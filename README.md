@@ -333,305 +333,68 @@ patterns, so the public artifact stays aligned with this scope statement.
 
 ## Monthly LLM-Elicited Behavior Baseline
 
-The behavior-prior backbone of Tier 2 can be sourced from a monthly batch
-pipeline that elicits qualitative bands from an ensemble of multimodal LLMs,
-intersects them across models, validates 31 snapshot invariants, and
-atomically promotes the result to the live active snapshot. These priors
-are explicit simulation assumptions — **not** empirical calibrations
-against real campaign data.
+Tier 2 can use an LLM-elicited behavior baseline as one source of
+behavior-prior assumptions. The private runtime periodically elicits
+qualitative behavior bands from an ensemble of multimodal LLMs, intersects
+those bands across models, validates snapshot invariants, and promotes a
+versioned snapshot for runtime use.
 
-> **Public-core note:** the `generate → validate → swap` scripts
-> (`scripts/generate_behavior_baseline.py`, `scripts/validate_baseline_swap.py`,
-> `scripts/swap_baseline.py`) and the `POST /api/simulate` endpoint described in
-> this section live in the **private runtime**, not in this public core. A
-> public-core checkout ships the versioned prompt bundle
-> (`prompts/behavior_baseline/`) and the loader/provider in
-> `src/persona/behavior_priors.py`, but **not** the operator scripts or the
-> web/API layer. The workflow below documents the upstream operator procedure;
-> it is not runnable from a public-core checkout alone.
+Those priors are explicit simulation assumptions — **not** empirical
+calibrations against real campaign data.
 
-### File layout
+This public core includes only the reusable, reviewable pieces:
 
-```
-behavior_baselines/
-  _pending/YYYY-MM.json       (candidate snapshot from generator)
-  YYYY-MM.json                (committed live snapshot)
-  active.json                 ({"version": "YYYY-MM"} pointer)
-  .swap.lock                  (filelock handle — do not remove during normal operation)
-  audit.jsonl                 (append-only JSON Lines audit)
+- `prompts/behavior_baseline/`: immutable prompt bundles used to elicit
+  the qualitative bands.
+- `src/persona/behavior_priors.py`: the public loader/provider surface
+  that consumes a validated snapshot.
+- `src/persona/_baseline_schema.py`: shared schema and invariant helpers.
 
+This public core does **not** include the private operator pipeline:
+
+- monthly `generate → validate → swap` scripts
+- cost guards, provider configuration, and audit-log handling
+- production API endpoints and web/UI integration
+- private operator runbooks and deployment procedures
+
+### Prompt Bundle Layout
+
+```text
 prompts/behavior_baseline/
-  v1/                         (immutable; legacy fallback only)
+  README.md
+  v1/
     system.txt
     user.txt
     attribute_descriptions.json
     output_schema.json
-  v2/                         (default — click_propensity scale clarification;
-    system.txt                 also immutable; new revisions go to v3/, etc.)
+  v2/
+    system.txt
     user.txt
     attribute_descriptions.json
     output_schema.json
 ```
 
-The swap script never deletes `.swap.lock`. Do not remove it during
-normal operation; the file persists by design as a `filelock` handle.
-If a swap process exits abnormally and a subsequent run blocks on lock
-timeout, an operator may delete `.swap.lock` manually after confirming
-no other swap is in flight (e.g., via `ps` / `lsof`).
+`v1/` is preserved for legacy compatibility. `v2/` is the current public
+default and clarifies the click-propensity scale. Future prompt revisions
+must be added as new `vN/` directories; existing prompt-version directories
+are immutable once published.
 
-### Three-command workflow
+Every byte in a prompt bundle contributes to the snapshot `prompt_hash`.
+Changing an existing bundle retroactively would invalidate any snapshot
+that referenced it, so edits must happen by adding a new versioned bundle,
+not by mutating `v1/` or `v2/`.
 
-The pipeline is `generate → validate → swap`. The first run uses
-`--bootstrap-mode` (validator) and `--bootstrap` (swap) because no
-`active.json` exists yet. Subsequent monthly runs drop both flags.
+### Runtime Boundary
 
-**Bootstrap (first run only)**
+An integrating runtime may opt into the LLM-elicited baseline by loading a
+validated monthly snapshot and passing it through the provider in
+`src/persona/behavior_priors.py`. If the referenced snapshot is absent,
+malformed, or fails invariant checks, the runtime should fail closed rather
+than silently falling back to another prior source.
 
-```bash
-# 1. Elicit + write _pending/YYYY-MM.json. The generator's cost guard needs a
-#    config overlay providing the per-batch generation budget + pricing tables;
-#    point SIMULATION_CONFIG_OVERLAY_PATH at your overlay or the run fails
-#    closed (exit 2).
-SIMULATION_CONFIG_OVERLAY_PATH=<your-overlay.toml> \
-    python scripts/generate_behavior_baseline.py
-
-# 2. Validate against the (absent) active state
-python scripts/validate_baseline_swap.py \
-    --pending behavior_baselines/_pending/YYYY-MM.json \
-    --json-report /tmp/baseline_report.json \
-    --bootstrap-mode
-
-# 3. Lock-first atomic swap. Writes behavior_baselines/YYYY-MM.json,
-#    updates active.json, appends bootstrap_swap to audit.jsonl.
-python scripts/swap_baseline.py \
-    --pending behavior_baselines/_pending/YYYY-MM.json \
-    --json-report /tmp/baseline_report.json \
-    --bootstrap
-```
-
-**Monthly run (subsequent months)**
-
-Identical command sequence, without `--bootstrap-mode` / `--bootstrap`
-(the generator still needs `SIMULATION_CONFIG_OVERLAY_PATH` set — see step 1
-above):
-
-```bash
-SIMULATION_CONFIG_OVERLAY_PATH=<your-overlay.toml> \
-    python scripts/generate_behavior_baseline.py
-
-python scripts/validate_baseline_swap.py \
-    --pending behavior_baselines/_pending/YYYY-MM.json \
-    --json-report /tmp/baseline_report.json
-
-python scripts/swap_baseline.py \
-    --pending behavior_baselines/_pending/YYYY-MM.json \
-    --json-report /tmp/baseline_report.json
-```
-
-Validator and swap share the same `--json-report` path. The validator
-writes it; the swap reads it inside its FileLock region and compares
-against a fresh in-lock validation to detect tampering or state changes
-that happen between the two invocations.
-
-> **Operators (private/SaaS deployment):** the full monthly procedure —
-> secrets/API-key handling, cost guard, failure-recovery matrix,
-> provider-outage degradation, rollback, and audit-log review — lives in
-> `docs/operator_runbook.md` in the **private** repository. That runbook is
-> intentionally NOT part of this public-core distribution, so the path
-> resolves only in the private repo.
-
-### Drift flags
-
-Three flags accept-on-decision the corresponding monthly drift signals.
-Each is a **validator-side violation suppressor**: when the flag is
-passed, the matching `drift_*` violation is filtered out of the report
-before `exit_code` is computed via priority dispatch. No dedicated audit
-entry is emitted for the allow itself; the only side effect is the
-absent violation in the report. (For visible operator audit, use
-`--force`, which writes `forced_swap` when it actually bypasses
-non-empty bypassable violations.)
-
-| Flag | Suppresses | When to pass it |
-|------|------------|-----------------|
-| `--allow-model-change` | `drift_model_set` | Intentional ensemble rotation (provider deprecation, new model adoption). |
-| `--allow-ensemble-change` | `drift_ensemble` | Same requested model set, but one model failed this month and the reduction is acceptable. |
-| `--allow-prompt-change` | `drift_prompt` | A new `prompts/behavior_baseline/vN/` directory is being adopted. **Never** combine with edits to a previously published `vN/` — those directories are immutable. |
-
-`--allow-prompt-change` never bypasses the invariant-10 prompt-hash
-recompute against the **current** prompt files; if the snapshot's
-`prompt_hash` no longer matches the on-disk bundle bytes, validation
-still fails (code 3 `prompt_hash_mismatch`).
-
-### Forced acceptance (`--force`)
-
-`--force` lets the swap proceed past **non-empty code-1 bypassable
-violations only**:
-
-- `magnitude`
-- `drift_model_set`
-- `drift_ensemble`
-- `drift_prompt`
-
-The `forced_swap` audit entry is written **only when `--force` actually
-bypasses a non-empty bypassable violation set on the way to a successful
-commit**. Running `--force` against a clean (zero-violation) report
-proceeds as a normal monthly swap and writes no audit entry — the
-operator's `--force` intent is recorded only when it has a load-bearing
-effect.
-
-`--force` **cannot** bypass:
-
-- `range`, `allowed_range`, `version_not_newer` (code 1, non-bypassable)
-- Any code-3 schema / content / report malformation
-- Code 2 missing-file conditions
-- Code 5 `disjoint_bands`, code 6 `insufficient_ensemble`, code 7
-  `band_too_narrow`
-- Code 8 `collision_different_content` / `downgrade_attempt`
-
-Passing `--force` against a non-bypassable category writes
-`non_bypassable_force_attempt` to the audit and exits with the
-validator's exit code (no commit happens).
-
-### Interpreting exit codes
-
-Both `validate_baseline_swap.py` and `swap_baseline.py` return one of
-`{0, 1, 2, 3, 5, 6, 7, 8}`. Exit codes follow **priority dispatch** —
-the highest-priority category present wins:
-
-```
-priority order:  3 > 8 > 5 > 6 > 7 > 2 > 1
-```
-
-| Code | Categories (examples) |
-|------|----------------------|
-| 0 | (no violations — accept) |
-| 1 | `magnitude`, `drift_*`, `range`, `allowed_range`, `version_not_newer` |
-| 2 | `missing_pending_file`, `missing_active_pointer`, `missing_active_snapshot`, `missing_prompt_file`, lock timeout |
-| 3 | `schema`, `type`, `not_finite`, `prompt_hash_mismatch`, `scenario_envelope_overlap`, `active_pointer_malformed`, `active_snapshot_malformed`, `bootstrap_with_existing_active`, `malformed_report`, ... |
-| 5 | `disjoint_bands` |
-| 6 | `insufficient_ensemble` |
-| 7 | `band_too_narrow` |
-| 8 | `collision_different_content`, `downgrade_attempt` |
-
-**Always read the full `violations` list in `--json-report`, not just
-the exit code.** Priority dispatch surfaces only the highest-priority
-code; lower-priority violations can still be present and hidden behind
-the single process exit code. Operators investigating a failure should
-inspect every violation category, not the exit code alone.
-
-### Prompt bundle immutability
-
-`prompts/behavior_baseline/vN/` directories are **immutable** once any
-snapshot has referenced them. Every byte affects the snapshot's
-`prompt_hash`; retroactive mutation (even whitespace or JSON field
-reorder) invalidates every snapshot that pinned that version and causes
-fail-closed loader errors at runtime.
-
-**Current default**: `--prompt-version v2` (the `click_propensity` scale
-clarification revision). `v1` is preserved for legacy fallback.
-
-To revise the elicitation prompt further:
-
-1. Create `prompts/behavior_baseline/v3/` (or `v4`, etc.) — never edit
-   an existing bundle in place
-2. Copy the four files from the current default (`v2/`) and edit them
-   under the new `vN/`
-3. Bump the generator's `--prompt-version` default to the new `vN`, OR
-   pass `--prompt-version vN` explicitly on the next monthly run
-4. Add a frozen SHA-256 row for the new bundle in both
-   `tests/unit/test_validate_baseline_swap.py::_FROZEN_BY_VERSION` and
-   `tests/integration/test_public_core_export.py::_FROZEN_BUNDLE_SHAS`
-
-Historical snapshots continue to validate against their original `vN/`
-bundle. The `v1/` and `v2/` SHA-256 are both gated by a regression test
-(`tests/unit/test_validate_baseline_swap.py::test_repo_prompt_bundle_sha256_frozen`)
-so accidental writes are surfaced immediately.
-
-### Why `_reject_nonfinite` is retained
-
-Python 3.11's stdlib `json` parser accepts `NaN`, `Infinity`, and
-`-Infinity` by default. Every `json.loads` call in this pipeline passes
-`parse_constant=_reject_nonfinite` so non-finite literals fail-closed
-during parsing rather than silently propagating into snapshot fields,
-audit entries, or report SHA computations. If a future contributor
-substitutes a different JSON parser, that parser must preserve
-equivalent non-finite rejection.
-
-**Do not remove this as "redundant" cleanup.** Python's default JSON
-behavior makes the explicit guard load-bearing.
-
-### Disclosure
-
-The LLM-elicited path carries its own user-facing disclosure string,
-distinct from the `REACTION_PRIOR_DISCLOSURE` used by the scenario-based
-defaults. See `src/persona/behavior_priors.py::LLM_ELICITED_DISCLOSURE`
-for the canonical wording; it must accompany any artifact that reports
-behavior-prior bands sourced from a monthly snapshot.
-
-### Runtime Integration: Selecting LLM-Elicited Baseline (Phase 2A)
-
-Once a monthly snapshot is committed (i.e. `behavior_baselines/active.json`
-exists and references a valid `YYYY-MM.json`), simulation runs can opt into
-the LLM-elicited behavior baseline by passing `scenario=llm_elicited` to the
-`POST /api/simulate` endpoint.
-
-**API-only selection** — Phase 2A does **not** add a UI dropdown for
-scenario selection. Operators select the scenario through the existing
-`scenario` form field via curl / Postman / typed clients only.
-
-```bash
-curl -X POST http://localhost:8000/api/simulate \
-  -F "file_id=<uploaded_id>" \
-  -F "brand=ExampleBrand" \
-  -F "category=fashion" \
-  -F "duration_sec=15" \
-  -F "cta_type=website_visit" \
-  -F "affinity=beauty_fitness" \
-  -F "scenario=llm_elicited"
-```
-
-**Fail-closed contract (HTTP 400)** — if the active LLM-elicited baseline is
-unavailable (missing `active.json`, missing snapshot body, parse error, or
-any invariant violation including invariant-10 prompt-hash mismatch), the
-endpoint returns HTTP 400 synchronously **before any `sim_id` is issued**:
-
-```json
-{"error": "LLM-elicited baseline unavailable: <reason>"}
-```
-
-The `<reason>` field is one of three fixed enum values:
-
-| Reason | Meaning |
-|---|---|
-| `missing` | `active.json` absent OR referenced `YYYY-MM.json` body absent |
-| `invariant_violation` | Snapshot fails one of the 31 invariants, including invariant-10 prompt-hash recompute |
-| `invalid` | Pre-invariant pointer-level failure (unparseable JSON, non-finite literals, non-dict top-level, version regex mismatch) |
-
-The response body intentionally **does not contain any filesystem path or
-raw exception detail** — server-side WARN logs carry the full message for
-operator debugging. Daily quota is refunded automatically on this path
-(fail-closed errors are operator/configuration issues, not user fault).
-Probe defense is layered by the existing `RateLimitMiddleware` (60 req/min/IP)
-and the concurrency gate, NOT by daily quota.
-
-**Report fields added in Phase 2A** — JSON reports for any scenario now
-contain two new optional fields in `prior_metadata`:
-
-| Field | Value when `scenario=llm_elicited` | Value otherwise |
-|---|---|---|
-| `behavior_prior_version` | `"YYYY-MM"` (the active snapshot version) | `null` |
-| `llm_elicited_disclosure` | The full `LLM_ELICITED_DISCLOSURE` wording | `null` |
-
-The existing `disclosure` field continues to carry `REACTION_PRIOR_DISCLOSURE`
-for **all** scenarios; consumers pinning to that string remain compatible.
-The markdown report includes an extra `**LLM-Elicited Baseline:**` paragraph
-and a version-tagged `Behavioral scenario:` line only when
-`scenario=llm_elicited` — legacy scenarios render byte-identical markdown.
-
-**Server-side constant** — `BASELINES_DIR` is a Python module-level constant
-in the request handler (`PROJECT_ROOT / "behavior_baselines"`). It must
-NEVER be derived from HTTP input. Tests may override it through the
-`_build_behavior_prior(..., baselines_dir=...)` kwarg only.
+The private SaaS runtime implements the full monthly operator workflow and
+the production API/reporting behavior. Those operational details are
+intentionally outside this public-core distribution.
 
 ---
 
