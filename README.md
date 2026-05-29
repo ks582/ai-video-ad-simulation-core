@@ -141,6 +141,40 @@ Reported estimates may pass through an internal null-stimulus bias correction
 layer to reduce systematic LLM response drift. The calibration procedure is
 intentionally not described in this public README.
 
+### Continuous Response Scores, Not Binary Survey Answers
+
+Brand Lift Surveys operationalize many metrics as binary or top-box responses
+— for example, brand awareness as a Yes/No recall question — and report the gap
+in positive-response rates between exposed and control groups. This system
+instead has each AI agent estimate a **continuous response score in [0, 1]** for
+every metric — read as that agent's *propensity* to respond positively — and
+compares the treatment and control means. The continuous score is best
+understood as a **higher-resolution simulation proxy**, not a drop-in
+replacement for a survey response:
+
+- **Higher resolution for creative comparison.** Continuous scores preserve
+  intermediate states (a "borderline" agent rather than a forced Yes or No),
+  which is what makes differences between ad variants and per-metric weak spots
+  visible — the whole point of a pre-flight pretest.
+- **Less aggregation noise than binarizing the model's own output.** If each
+  agent were forced to a hard Yes/No, the cell rate would average coin-flips
+  drawn from the same underlying scores — the same expected value with added
+  sampling variance. Keeping the scores continuous avoids discarding that
+  information.
+- **A binary view is derivable; the reverse is not.** A survey-compatible
+  binary rate can be projected from continuous scores by thresholding, but a
+  binary answer cannot recover the score behind it. That projection is one
+  possible view — not an equivalent of a real survey's response distribution.
+
+**Resolution is not accuracy.** Finer resolution does **not** make these numbers
+closer to real-world truth. The per-agent propensities are LLM estimates with no
+external calibration against observed campaign outcomes; treating them as the
+*same quantity* a real survey measures would require calibration this system
+does not claim. The system is built for **directional and relative** conclusions
+— ranking creatives, locating weak metrics — not for absolute values: a
+simulated lift should never be read as, or compared one-to-one against, a real
+Brand Lift Survey's reported lift.
+
 ### Known Limitations
 
 Two structural limitations are worth stating explicitly.
