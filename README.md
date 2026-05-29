@@ -175,6 +175,11 @@ does not claim. The system is built for **directional and relative** conclusions
 simulated lift should never be read as, or compared one-to-one against, a real
 Brand Lift Survey's reported lift.
 
+Continuous or scaled response scores are commonly used in pre-flight creative
+testing and copy-testing workflows. This system uses that style of diagnostic
+signal for creative comparison, while treating in-flight Brand Lift Studies
+based on exposed/control survey measurement as a separate validation layer.
+
 ### Known Limitations
 
 Two structural limitations are worth stating explicitly.
