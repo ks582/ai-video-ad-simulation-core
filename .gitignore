@@ -31,6 +31,16 @@ env/
 !.env.example
 *.pem
 *.key
+gcp-wif-credentials*.json
+
+# Public-core users may run monthly-baseline experiments locally; keep
+# transient/operator artifacts out of git if they do.
+behavior_baselines/_pending/*.json.tmp
+behavior_baselines/*.json.tmp
+behavior_baselines/.swap.lock
+behavior_baselines/_debug/*.json
+behavior_baselines/_debug/*.json.tmp
+.audit/
 
 # OS files
 .DS_Store

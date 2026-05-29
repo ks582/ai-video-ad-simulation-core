@@ -15,7 +15,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 # ---------------------------------------------------------------------------
 # Shared scalar type
 # ---------------------------------------------------------------------------
@@ -113,8 +112,8 @@ class HouseholdType(str, Enum):
 class SegmentAttrs(BaseModel):
     """Demographic attributes from public statistics P(x).
 
-    Sourced from ACS, CPS, CEX, and US Population Estimates.
-    Defines the poststratification cell for IPF weighting.
+    Sourced from the American Community Survey (ACS) and the NTIA Internet
+    Use Survey. Defines the poststratification cell for IPF weighting.
     """
 
     age_group: AgeGroup
@@ -165,7 +164,7 @@ class DigitalProfile(BaseModel):
 
 
 class CategoryProfile(BaseModel):
-    """Content interest distribution and category spending profile (KuaiRec, CEX)."""
+    """Content interest distribution and category spending profile."""
 
     interest_vector: list[float] = Field(min_length=1)
     interest_categories: list[str] = Field(default_factory=list)
@@ -179,7 +178,7 @@ class CategoryProfile(BaseModel):
 
 
 class ProcessingProfile(BaseModel):
-    """Cognitive and behavioral ad-processing style (KuaiRand, CEX, GenAI)."""
+    """Cognitive and behavioral ad-processing style (PersonaTemplate / GenAI)."""
 
     ad_tolerance: DistributedScalar
     price_sensitivity: DistributedScalar
@@ -188,10 +187,12 @@ class ProcessingProfile(BaseModel):
 
 
 class BrandPrior(BaseModel):
-    """Pre-exposure brand familiarity and recall priors (LAMBDA, UltraLAMBDA, GenAI).
+    """Pre-exposure brand familiarity and recall priors.
 
+    Sampled from the PersonaTemplate brand_prior_mean/std. All fields use
+    status='assumed' with low confidence — there is no external empirical
+    calibration of brand familiarity in the production pipeline.
     Constraint: unaided_recall.mean <= aided_recognition.mean.
-    For completely new brands: all fields use status='assumed' with low confidence.
     """
 
     familiarity: DistributedScalar
@@ -214,7 +215,7 @@ class LatentPreExposureState(BaseModel):
 
 
 class SessionState(BaseModel):
-    """Session-level behavioral priors (KuaiRec, ATUS)."""
+    """Session-level behavioral priors (explicit simulation assumptions)."""
 
     session_length_tendency: DistributedScalar
     search_propensity: DistributedScalar
@@ -385,5 +386,4 @@ class Persona(BaseModel):
     def brand_familiarity(self) -> float:
         """Scalar brand familiarity (from brand_prior.familiarity.mean)."""
         return self.brand_prior.familiarity.mean
-
 

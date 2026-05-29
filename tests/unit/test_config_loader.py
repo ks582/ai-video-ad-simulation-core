@@ -9,6 +9,24 @@ import src.config_loader as config_loader
 from src.config_loader import _deep_merge, _load_config, reload_config
 
 
+@pytest.fixture(autouse=True)
+def _restore_config_cache_after_test():
+    """Prevent this module from leaking a core-only/polluted config cache into
+    later test modules.
+
+    These tests exercise `_load_config()` and the cache with the overlay env
+    var deleted/redirected via monkeypatch. monkeypatch restores the env at
+    teardown, but the module-global `src.config_loader._config` is NOT reverted
+    — a core-only cache can persist. Several production modules read
+    `get_config()["llm"]` at IMPORT time, so a later test module that first
+    imports them would crash with `KeyError: 'llm'`. After each test here, with
+    env already restored by monkeypatch, force a cache reload so the global
+    cache reflects the (restored) environment.
+    """
+    yield
+    reload_config()
+
+
 class TestPathContainment:
     """M2: SIMULATION_CONFIG_PATH must stay within config/."""
 

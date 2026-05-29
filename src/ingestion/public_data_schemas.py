@@ -1,7 +1,6 @@
 """Section 1.9.3 Public Data Common Schemas.
 
-Canonical schemas for reusing public datasets such as
-KuaiRand/KuaiRec, LAMBDA/UltraLAMBDA, YouTube-8M on the same simulator.
+Canonical schemas for normalizing public datasets used by the simulator.
 """
 
 from __future__ import annotations
@@ -11,18 +10,13 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-
 # ---------------------------------------------------------------------------
 # 1. Behavior Schema (Section 1.9.3.5)
-#    KuaiRand / KuaiRec -> watch continuation, watch ratio, reaction signals
 # ---------------------------------------------------------------------------
 
 
 class BehaviorRecord(BaseModel):
-    """Viewing behavior record.
-
-    Normalizes and stores behavior data from KuaiRand / KuaiRec.
-    """
+    """Viewing behavior record (generic schema)."""
 
     user_id: str
     item_id: str
@@ -32,31 +26,24 @@ class BehaviorRecord(BaseModel):
     clicked: bool = False
     liked: bool = False
     left_session: bool = False
-    # KuaiRand extension: 12 types of feedback signals
     feedback_signals: dict[str, float] = Field(
         default_factory=dict,
         description="Additional feedback signals (e.g. is_hate, is_not_interest, ...)",
     )
-    source_dataset: str = Field(default="", description="Data source name (kuairand/kuairec)")
+    source_dataset: str = Field(default="", description="Data source name")
 
 
 # ---------------------------------------------------------------------------
 # 2. Ad Schema (Section 1.9.3.5)
-#    LAMBDA / UltraLAMBDA -> ad recall, memorability score
 # ---------------------------------------------------------------------------
 
 
 class AdCreativeRecord(BaseModel):
-    """Ad creative record.
-
-    Normalizes and stores ad data from LAMBDA / UltraLAMBDA.
-    """
+    """Ad creative record (generic schema, structural attributes only)."""
 
     ad_id: str
     brand: str = ""
     duration_sec: float = Field(default=0.0, ge=0.0)
-    memorability: float = Field(default=0.0, ge=0.0, le=1.0, description="memorability score")
-    recall_score: float = Field(default=0.0, ge=0.0, le=1.0, description="recall score")
     scene_features: list[dict] = Field(
         default_factory=list,
         description="Scene-level features (e.g. [{scene_id, tags, ...}])",
@@ -65,7 +52,7 @@ class AdCreativeRecord(BaseModel):
         default_factory=dict,
         description="Additional attributes (category, tone, etc.)",
     )
-    source_dataset: str = Field(default="", description="Data source name (lambda/ultralambda)")
+    source_dataset: str = Field(default="", description="Data source name")
 
 
 # ---------------------------------------------------------------------------
@@ -130,4 +117,3 @@ class DataRegistry(BaseModel):
     """
 
     entries: list[DataRegistryEntry] = Field(default_factory=list)
-

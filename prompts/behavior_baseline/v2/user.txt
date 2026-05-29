@@ -1,0 +1,17 @@
+Please produce plausible-range estimates for three behavioral attributes of a general US adult viewer population on an ad-supported video platform.
+
+Context:
+  - Target population: US adults aged roughly 18 to 65 who consume ad-supported short-to-medium-form video.
+  - Time horizon: a typical month of viewing in the current advertising landscape.
+  - Aggregation level: a single behavioral baseline for the cohort as a whole. Per-segment heterogeneity is handled downstream by the simulation; you are providing the cohort-level prior.
+
+For each attribute listed in the `--- attributes ---` section below, produce a single AttributeEstimate object containing:
+
+  * `lo`, `hi`: the lower and upper bounds of your plausible band. Must satisfy 0 <= lo < hi <= 1.
+  * `mean`: your central estimate within [lo, hi].
+  * `std`: your one-sigma uncertainty estimate around `mean`.
+  * `rationale`: a short qualitative justification (one to three sentences).
+
+The `source_range_lo` and `source_range_hi` slots accompanying each attribute are reference anchors derived from earlier scenario bands; they bound the range typical of this simulation's coordinate system. You may produce a band outside that anchor range if you have reason to, but extreme departures should be reflected in your `rationale`.
+
+Return ONLY a JSON object matching the schema below. Do not wrap in markdown. Do not include any prose outside the JSON.

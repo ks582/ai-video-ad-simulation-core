@@ -50,3 +50,13 @@ pythonpath = ["src"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src", "core"]
+
+# Phase 1 H3 (Option A) parity with root pyproject.toml:
+# the LLM-elicited behavior baseline loader recomputes prompt_hash at
+# every snapshot load (invariant 10). If the wheel ships without the
+# versioned prompt bundle, every load fails closed with
+# LLMElicitedSnapshotError — there is no production fallback. Mirror the
+# root pyproject's force-include so public-core wheel installs preserve
+# this contract.
+[tool.hatch.build.targets.wheel.force-include]
+"prompts/behavior_baseline" = "prompts/behavior_baseline"

@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LLMElicitedBehaviorBaseline.v1.PerModelResponse",
+  "description": "Per-model elicitation output for a single monthly baseline call. The generator validates each provider's response against this schema before computing the multi-model intersection. The schema is embedded canonically inside the rendered user prompt so prompt_hash captures it.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "session_length_tendency": {
+      "$ref": "#/definitions/AttributeEstimate"
+    },
+    "search_propensity": {
+      "$ref": "#/definitions/AttributeEstimate"
+    },
+    "click_propensity": {
+      "$ref": "#/definitions/AttributeEstimate"
+    }
+  },
+  "required": [
+    "session_length_tendency",
+    "search_propensity",
+    "click_propensity"
+  ],
+  "definitions": {
+    "AttributeEstimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lo": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Lower bound of the plausible band for this attribute."
+        },
+        "hi": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Upper bound of the plausible band; must be strictly greater than lo."
+        },
+        "mean": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Central tendency within [lo, hi]. The generator may override this with (lo+hi)/2 during ensemble synthesis; provide your own estimate so per-model audit retains it."
+        },
+        "std": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 0.5,
+          "description": "One-sigma uncertainty for the attribute estimate. The generator may override this with (hi-lo)/4 during ensemble synthesis; provide your own estimate so per-model audit retains it."
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short prose justification (one to three sentences) explaining why this band is plausible for a general US adult viewer population. Cite the qualitative considerations you weighed; do not fabricate specific empirical numbers."
+        }
+      },
+      "required": ["lo", "hi", "mean", "std", "rationale"]
+    }
+  }
+}
